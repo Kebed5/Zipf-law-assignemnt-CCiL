@@ -9,26 +9,23 @@ import nltk
 from collections import Counter
 import matplotlib.pyplot as plt
 import seaborn as sns
-import langdetect
 from langdetect import detect
 from tabulate import tabulate  # Adding tabulate for better formatting
 import json
 from scipy.stats import kendalltau
-nltk.download('punkt')  # Ensure you have the tokenizer
 import shutil
 import os
+nltk.download('punkt')  # Ensure you have the tokenizer
+
 
 def get_billboard_hot_100():
-    """
-    Scrapes the current Billboard Hot 100 song titles.
-    Returns a list of (song_title) strings.
-    """
+    """Scrapes the current Billboard Hot 100 song titles."""
     url = "https://www.billboard.com/charts/hot-100/"
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     song_data = []
-    # The class/structure on Billboard can change frequently, adjust the selectors if it breaks.
+    
     for item in soup.select("li.o-chart-results-list__item h3"):
         song_title = item.get_text(strip=True)
         if song_title:
@@ -37,10 +34,7 @@ def get_billboard_hot_100():
     return song_data[:100]
 
 def get_melon_chart():
-    """
-    Scrapes the current Melon Chart Top 100 song titles.
-    Returns a list of (song_title) strings.
-    """
+    """Scrapes the current Melon Chart Top 100 song titles."""
     url = "https://www.melon.com/chart/index.htm"
     headers = {
         "User-Agent": (
@@ -68,10 +62,8 @@ melon_songs = get_melon_chart()
 print(f"Fetched {len(billboard_songs)} Billboard songs.")
 print(f"Fetched {len(melon_songs)} Melon songs.")
 
-# Replace with your actual Genius API credentials
+# Add Genius API credentials
 ACCESS_TOKEN = "Mfo9jwo2FTtUyLzzE7x2Ay4ELhGzPsrM1_sll9CN1-rQ_wV1l-6hQGWNk5IkonZx"
-
-# Initialize Genius API client
 genius = lyricsgenius.Genius(ACCESS_TOKEN)
 
 def get_lyrics_from_genius(song_list, target_language=None, target_count=10):
@@ -99,13 +91,14 @@ def get_lyrics_from_genius(song_list, target_language=None, target_count=10):
 english_lyrics_list = get_lyrics_from_genius(billboard_songs, target_language="en", target_count=25)
 korean_lyrics_list = get_lyrics_from_genius(melon_songs, target_language="ko", target_count=25)
 
+#Analyze Word Frequency and Length
 def analyze_zipf_law(lyrics_list):
     full_text = " ".join(lyrics_list).lower()
     tokens = [t for t in nltk.word_tokenize(full_text) if t.isalpha() and len(t) >= 2]
     word_counts = Counter(tokens)
     df = pd.DataFrame({"word": list(word_counts.keys()), "frequency": list(word_counts.values()), "length": [len(w) for w in word_counts.keys()]})
     df = df[df['word'].str.match(r'^[a-zA-Z\uAC00-\uD7A3]+$')]  # Remove unwanted mixed character sequences
-    df = df[~df['word'].str.contains("contributor|translations|romanization|lyrics|vitbahasa|indonesianederlands|phasa|thaipolskieskydie", case=False)]  # Remove unwanted words
+    df = df[~df['word'].str.contains("contributor|translations|romanization|lyrics|vitbahasa|indonesianederlands|phasa|thaipolskieskydie", case=False)]  # Remove unwanted words that kept showing up
     df = df[df['word'].str.match(r'^[a-zA-Z]+$|^[\uAC00-\uD7A3]+$')] #Remove English words mixed in Korean
     print(tabulate(df.head(25), headers="keys", tablefmt="grid"))  # Print formatted table
     return df
@@ -113,6 +106,7 @@ def analyze_zipf_law(lyrics_list):
 english_word_data = analyze_zipf_law(english_lyrics_list)
 korean_word_data = analyze_zipf_law(korean_lyrics_list)
 
+#Plot Zip´s Law
 def plot_zipf(word_data, language_label="English"):
     plt.figure(figsize=(7, 5))
     sns.scatterplot(data=word_data, x="frequency", y="length", alpha=0.3)
@@ -125,9 +119,7 @@ def plot_zipf(word_data, language_label="English"):
 plot_zipf(english_word_data, "English (Billboard)")
 plot_zipf(korean_word_data, "Korean (Melon)")
 
-
-
-
+#Compute Kendall's Correlation
 def kendall_corr(word_data):
     return kendalltau(word_data["frequency"], word_data["length"])
 
@@ -135,7 +127,7 @@ print(f"English Kendall correlation: {kendall_corr(english_word_data)[0]:.3f}")
 print(f"Korean Kendall correlation: {kendall_corr(korean_word_data)[0]:.3f}")
 
 
-
+#Save Files 
 def save_lyrics(lyrics_list, filename):
     """Saves lyrics to a TXT file."""
     if lyrics_list:
